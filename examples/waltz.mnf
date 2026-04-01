@@ -1,0 +1,30 @@
+# Waltz example - 3/4 time, two instruments
+bpm 160
+time 3/4
+
+track Melody
+  instrument 40   # violin
+  channel 1
+  E5 q 85
+  D5 q 75
+  C5 q 75
+  B4 h 90
+  G4 q 70
+  A4 q. 80
+  B4 e 80
+  C5 h. 95
+end
+
+track Accompaniment
+  instrument 0    # piano
+  channel 2
+  { C3 q 60, E3 q 60, G3 q 60 }
+  { C3 q 55, E3 q 55, G3 q 55 }
+  { C3 q 55, E3 q 55, G3 q 55 }
+  { G2 q 60, B2 q 60, D3 q 60 }
+  { G2 q 55, B2 q 55, D3 q 55 }
+  { G2 q 55, B2 q 55, D3 q 55 }
+  { C3 q 60, E3 q 60, G3 q 60 }
+  { C3 q 55, E3 q 55, G3 q 55 }
+  { C3 q 55, E3 q 55, G3 q 55 }
+end

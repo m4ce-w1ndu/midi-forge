@@ -1,0 +1,31 @@
+# Demo score: Bach-ish progression
+bpm 120
+time 4/4
+
+track Piano
+  instrument 0
+  channel 1
+  # Bar 1
+  C4 q 80
+  E4 q 80
+  G4 q 80
+  C5 q 80
+  # Bar 2 - chord
+  { C4 h 90, E4 h 90, G4 h 90 }
+  rest h
+  # Bar 3 - dotted notes
+  G4 q. 70
+  A4 e 70
+  B4 h 70
+  # Bar 4
+  C5 w 100
+end
+
+track Bass
+  instrument 32
+  channel 2
+  C3 h 95
+  G2 h 95
+  F2 w 95
+  C3 w 95
+end
