@@ -1,0 +1,264 @@
+; ─────────────────────────────────────────────────────────────────────────────
+; MNF — MIDI Note Format
+; Formal Grammar in Augmented BNF (ABNF, RFC 5234)
+; Version 1.0
+; ─────────────────────────────────────────────────────────────────────────────
+;
+; Notation conventions
+;   /          ordered alternation (first match wins)
+;   *          zero or more repetitions
+;   1*         one or more repetitions
+;   [x]        optional element (= *1x)
+;   "x"        case-insensitive literal string
+;   %d65       decimal character value (ASCII 'A')
+;   %d65-90    character range
+;   SP         space (ASCII 32)
+;   HTAB       horizontal tab (ASCII 9)
+;   CRLF       carriage-return line-feed
+;   LF         line-feed
+;   DIGIT      %d48-57  (0–9)
+;   ALPHA      %d65-90 / %d97-122
+; ─────────────────────────────────────────────────────────────────────────────
+
+
+; ── Top-level ─────────────────────────────────────────────────────────────────
+
+file            = *line
+
+line            = blank-line
+                / comment-line
+                / header-line
+                / track-block
+
+blank-line      = *WSP EOL
+
+comment-line    = *WSP "#" *VCHAR EOL
+
+EOL             = LF / CRLF
+
+WSP             = SP / HTAB
+
+
+; ── Header directives ─────────────────────────────────────────────────────────
+
+header-line     = *WSP header-directive *WSP [inline-comment] EOL
+
+header-directive = bpm-directive
+                 / time-directive
+                 / tpq-directive
+
+bpm-directive   = "bpm" 1*WSP positive-integer
+
+time-directive  = "time" 1*WSP time-signature
+
+tpq-directive   = "tpq" 1*WSP positive-integer
+
+time-signature  = ts-numerator "/" ts-denominator
+
+ts-numerator    = positive-integer          ; 1–99
+
+ts-denominator  = "1" / "2" / "4" / "8" / "16" / "32"
+
+inline-comment  = "#" *VCHAR
+
+
+; ── Track block ───────────────────────────────────────────────────────────────
+
+track-block     = track-open
+                  *track-inner-line
+                  track-close
+
+track-open      = *WSP "track" 1*WSP track-name *WSP [inline-comment] EOL
+
+track-name      = 1*name-char *(1*WSP 1*name-char)   ; one or more tokens
+
+name-char       = ALPHA / DIGIT / "_" / "-"
+
+track-close     = *WSP "end" *WSP [inline-comment] EOL
+
+track-inner-line = blank-line
+                 / comment-line
+                 / track-directive-line
+                 / event-line
+
+
+; ── Track-level directives ────────────────────────────────────────────────────
+
+track-directive-line = *WSP track-directive *WSP [inline-comment] EOL
+
+track-directive = instrument-directive
+                / channel-directive
+
+instrument-directive = "instrument" 1*WSP gm-program
+
+channel-directive    = "channel" 1*WSP midi-channel
+
+gm-program      = %d48-57 *1(%d48-57) *1(%d48-57)  ; 0–127
+                ; integer in range [0, 127]
+
+midi-channel    = "1"  / "2"  / "3"  / "4"  / "5"  / "6"  / "7"  / "8"
+                / "9"  / "10" / "11" / "12" / "13" / "14" / "15" / "16"
+
+
+; ── Event lines ───────────────────────────────────────────────────────────────
+
+event-line      = *WSP event *WSP [inline-comment] EOL
+
+event           = chord-event
+                / note-event
+
+; Single note or rest
+note-event      = pitch 1*WSP duration [1*WSP velocity]
+
+; Chord: simultaneous notes enclosed in braces, comma-separated
+chord-event     = "{" *WSP chord-note-list *WSP "}"
+
+chord-note-list = chord-note *(*WSP "," *WSP chord-note)
+
+chord-note      = pitch 1*WSP duration [1*WSP velocity]
+
+
+; ── Pitch ─────────────────────────────────────────────────────────────────────
+
+pitch           = rest-pitch
+                / note-pitch
+
+rest-pitch      = "rest"                            ; case-insensitive
+
+note-pitch      = note-letter [accidental] octave
+
+note-letter     = "C" / "D" / "E" / "F" / "G" / "A" / "B"
+                ; case-insensitive
+
+accidental      = "#"           ; sharp
+                / "b"           ; flat (lowercase only, to avoid B-ambiguity at parse time)
+
+octave          = ["-"] 1*DIGIT                     ; e.g. -1 through 9
+                ; resulting MIDI note must be in [0, 127]
+
+
+; ── Duration ──────────────────────────────────────────────────────────────────
+
+duration        = named-duration
+                / tick-duration
+
+named-duration  = duration-symbol ["." ]            ; "." = dotted (1.5×)
+
+duration-symbol = "w"           ; whole
+                / "h"           ; half
+                / "q"           ; quarter
+                / "e"           ; eighth
+                / "s"           ; sixteenth
+                ; all case-insensitive
+
+tick-duration   = positive-integer                  ; raw tick count, no dot allowed
+
+
+; ── Velocity ──────────────────────────────────────────────────────────────────
+
+velocity        = 1*3DIGIT                          ; integer in [0, 127]
+
+
+; ── Primitives ────────────────────────────────────────────────────────────────
+
+positive-integer = 1*DIGIT                          ; no leading zeros required;
+                                                    ; value > 0
+
+DIGIT           = %d48-57                           ; "0"–"9"
+
+VCHAR           = %d33-126                          ; any visible ASCII character
+
+
+; ─────────────────────────────────────────────────────────────────────────────
+; SEMANTIC CONSTRAINTS (not expressible in ABNF)
+;
+;   C1.  bpm value must be in [1, 999].
+;   C2.  tpq value must be in [1, 32767].
+;   C3.  ts-numerator must be in [1, 99].
+;   C4.  The computed MIDI note number for any note-pitch must be in [0, 127].
+;            MIDI note = (octave + 1) * 12 + semitone-of-note-letter + accidental-offset
+;   C5.  velocity must be in [0, 127].
+;   C6.  gm-program must be in [0, 127].
+;   C7.  A file must contain at least one track-block.
+;   C8.  Every track-open must be matched by exactly one track-close.
+;   C9.  header-line directives must not appear inside a track-block.
+;   C10. tick-duration must be > 0.
+;   C11. "b" used as a flat accidental is unambiguous only when the preceding
+;        note-letter is not itself "B"; parsers must handle "Bb4" as B-flat 4.
+; ─────────────────────────────────────────────────────────────────────────────
+
+
+; ─────────────────────────────────────────────────────────────────────────────
+; NOTE-LETTER TO SEMITONE MAPPING
+;
+;   C → 0    D → 2    E → 4    F → 5
+;   G → 7    A → 9    B → 11
+;
+;   Accidental offsets:  "#" → +1    "b" → -1
+;
+;   Formula:
+;     midi_note = (octave + 1) * 12 + semitone + accidental_offset
+;
+;   Examples:
+;     C4  → (4+1)*12 + 0       = 60   (middle C)
+;     A4  → (4+1)*12 + 9       = 69   (concert A)
+;     D#3 → (3+1)*12 + 2 + 1   = 51
+;     Eb5 → (5+1)*12 + 4 - 1   = 75
+; ─────────────────────────────────────────────────────────────────────────────
+
+
+; ─────────────────────────────────────────────────────────────────────────────
+; DURATION TICK COMPUTATION  (tpq = ticks per quarter note)
+;
+;   w  → tpq * 4
+;   h  → tpq * 2
+;   q  → tpq
+;   e  → tpq / 2
+;   s  → tpq / 4
+;
+;   Dotted (suffix "."):  ticks = base_ticks + base_ticks / 2
+;
+;   Raw tick-duration:    ticks = literal integer value
+; ─────────────────────────────────────────────────────────────────────────────
+
+
+; ─────────────────────────────────────────────────────────────────────────────
+; CHORD TIMELINE RULE
+;
+;   All notes within a chord-event start at the same timeline tick.
+;   After a chord-event, the timeline advances by:
+;       max(duration_ticks of each chord-note)
+; ─────────────────────────────────────────────────────────────────────────────
+
+
+; ─────────────────────────────────────────────────────────────────────────────
+; EXAMPLE — annotated parse tree (abbreviated)
+;
+;   Source:
+;       bpm 120
+;       time 4/4
+;
+;       track Piano
+;         instrument 0
+;         channel 1
+;         C4 q 80
+;         { E4 q 90, G4 q 90 }
+;         rest h
+;       end
+;
+;   Parse:
+;       file
+;         header-line  →  bpm-directive  →  "bpm" "120"
+;         header-line  →  time-directive →  "time" "4/4"
+;         blank-line
+;         track-block
+;           track-open          →  track-name="Piano"
+;           track-directive-line→  instrument-directive  →  gm-program=0
+;           track-directive-line→  channel-directive     →  midi-channel=1
+;           event-line          →  note-event            →  pitch=C4 dur=q vel=80
+;           event-line          →  chord-event
+;                                    chord-note  →  pitch=E4 dur=q vel=90
+;                                    chord-note  →  pitch=G4 dur=q vel=90
+;           event-line          →  note-event  →  rest-pitch dur=h
+;           track-close         →  "end"
+; ─────────────────────────────────────────────────────────────────────────────
