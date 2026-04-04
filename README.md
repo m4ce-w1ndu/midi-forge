@@ -217,12 +217,12 @@ midi_forge/
 
 ### Module responsibilities
 
-| Module | Lines | Responsibility |
-|--------|-------|----------------|
-| `model` | ~115 | All MNF data types; no I/O, no parsing |
-| `parser` | ~190 | `parse()` and its helpers; text → `Song` |
-| `encoder` | ~165 | `encode_midi()` and MIDI binary writers; `Song` → bytes |
-| `main` | ~70 | CLI: argument handling, file I/O, wiring |
+| Module | Responsibility |
+|--------|----------------|
+| `model` | All MNF data types; no I/O, no parsing |
+| `parser` | `parse()` and its helpers; text → `Song` |
+| `encoder` | `encode_midi()` and MIDI binary writers; `Song` → bytes |
+| `main` | CLI: argument handling, file I/O, wiring |
 
 ---
 
