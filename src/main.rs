@@ -41,17 +41,103 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+/// Prints the full help message to stdout and returns.
+fn print_help() {
+    println!(
+        "midi-forge {ver}
+Compile a MIDI Note Format (.mnf) text score into a standard MIDI file.
+
+USAGE
+  midi_forge <input.mnf> [output.mid]
+  midi_forge -h | --help
+
+ARGUMENTS
+  <input.mnf>     Path to the .mnf source file (required).
+  [output.mid]    Path for the output MIDI file (optional).
+                  Defaults to <input> with its extension replaced by .mid.
+
+OPTIONS
+  -h, --help      Show this help message and exit.
+
+MNF FORMAT OVERVIEW
+  An .mnf file has two sections: a header (global settings) followed by
+  one or more track blocks.  Comments start with # and run to end-of-line.
+  Keywords are case-insensitive; track names are case-sensitive.
+
+  HEADER DIRECTIVES  (must appear before the first track)
+    bpm <integer>         Tempo in beats per minute.  Default: 120
+    time <num>/<den>      Time signature.  Denominator must be a power of 2.
+                          Default: 4/4
+    tpq <integer>         Ticks per quarter note (1–32767).  Default: 480
+
+  TRACK BLOCK
+    track <name>
+      instrument <0-127>  GM program number.  Default: 0
+      channel <1-16>      MIDI channel.       Default: 1
+      <events...>
+    end
+
+  NOTE EVENTS
+    <pitch> <duration> [velocity]
+
+    Pitch:    <letter>[<accidental>]<octave>
+              Letters  : A B C D E F G  (case-insensitive)
+              Accidentals: # (sharp)  b (flat, lowercase only)
+              Octave  : -1 to 9   (middle C = C4 = MIDI 60)
+              Examples: C4  D#3  Eb5  G-1  F#9
+
+    Duration: named symbol or raw tick count
+              w   whole        (1920 ticks at tpq=480)
+              h   half         ( 960 ticks)
+              q   quarter      ( 480 ticks)
+              e   eighth       ( 240 ticks)
+              s   sixteenth    ( 120 ticks)
+              Append . for a dotted value (e.g. q. = 720 ticks).
+              A plain integer is used as an exact tick count.
+
+    Velocity: integer 0–127.  Default: 100
+    Rest:     use the keyword 'rest' in place of a pitch.
+
+  CHORDS
+    {{ C4 q 90, E4 q 85, G4 q 85 }}
+    All notes share the same start tick; the timeline advances by the
+    longest member duration.  Rests are valid chord members.
+
+EXAMPLES
+  midi_forge song.mnf              # writes song.mid
+  midi_forge song.mnf out.mid      # explicit output path
+
+  # minimal .mnf file:
+  bpm 120
+  track Piano
+    instrument 0
+    channel 1
+    C4 q
+    E4 q
+    G4 q
+  end
+
+  See the examples/ directory for complete scores (progression.mnf, waltz.mnf).
+
+FULL SPECIFICATION
+  docs/MNF_spec.md    Language specification
+  docs/MNF_grammar.abnf  Formal ABNF grammar",
+        ver = env!("CARGO_PKG_VERSION")
+    );
+}
+
 /// Entry point: reads an MNF file, compiles it, and writes the MIDI output.
 ///
 /// # Arguments (command-line)
 ///
 /// ```text
 /// midi_forge <input.mnf> [output.mid]
+/// midi_forge -h | --help
 /// ```
 ///
 /// | Position | Description |
 /// |----------|-------------|
-/// | 1 | Path to the `.mnf` source file (required). |
+/// | 1 | Path to the `.mnf` source file (required), or a help flag. |
 /// | 2 | Path for the `.mid` output file (optional). Defaults to the input path with its extension replaced by `.mid`. |
 ///
 /// # Process
@@ -66,13 +152,20 @@ use std::path::Path;
 ///
 /// | Code | Meaning |
 /// |------|---------|
-/// | `0` | Success. |
+/// | `0` | Success or `--help`. |
 /// | `1` | Missing arguments, I/O error, or parse error. |
 fn main() {
     let args: Vec<String> = env::args().collect();
+
+    if args.len() >= 2 && (args[1] == "-h" || args[1] == "--help") {
+        print_help();
+        return;
+    }
+
     if args.len() < 2 {
         eprintln!("Usage: midi_forge <input.mnf> [output.mid]");
         eprintln!("  Converts a .mnf text score to a standard MIDI file.");
+        eprintln!("  Run 'midi_forge --help' for full documentation.");
         std::process::exit(1);
     }
 

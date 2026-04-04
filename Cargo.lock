@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "midi-generator"
+name = "midi-forge"
 version = "0.1.0"
